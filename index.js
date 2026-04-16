@@ -1,3 +1,17 @@
+// Must run before any other imports so the proxy agent intercepts all HTTP/S
+// requests including those made internally by the aniwatch package.
+if (process.env.HTTPS_PROXY || process.env.HTTP_PROXY) {
+  const { bootstrap } = await import("global-agent");
+  process.env.GLOBAL_AGENT_HTTPS_PROXY =
+    process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
+  process.env.GLOBAL_AGENT_HTTP_PROXY =
+    process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
+  bootstrap();
+  console.log(
+    `[proxy] routing via ${process.env.GLOBAL_AGENT_HTTPS_PROXY}`
+  );
+}
+
 import express from "express";
 import cors from "cors";
 import { manifest } from "./src/manifest.js";

@@ -51,6 +51,23 @@ docker run -d -p 7000:7000 aniwatch-stremio
 
 ---
 
+## Cloud deployment note — proxy required
+
+HiAnime (AniWatch.tv) blocks requests from datacenter IP ranges (Render, Railway, etc.).
+The addon works fine when run **locally on a home/residential IP**. For cloud hosting,
+you need to route requests through a residential proxy:
+
+1. Sign up for [ScraperAPI](https://www.scraperapi.com) (free tier: 1 000 calls/month)
+2. In your Render/Railway service, set this environment variable:
+   ```
+   HTTPS_PROXY=http://scraperapi:YOUR_API_KEY@proxy.scraperapi.com:8001
+   ```
+3. Redeploy — the addon will route all scraping through the proxy automatically.
+
+Any HTTPS proxy in `http://user:pass@host:port` format works, not just ScraperAPI.
+
+---
+
 ## Features
 
 | Feature | Detail |

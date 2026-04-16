@@ -2,8 +2,13 @@ import { getEpisodes, getEpisodeSources } from "./aniwatch.js";
 
 const ID_PREFIX = "aniwatch:";
 
-// Servers to try in order. "hd-1" (VidStreaming) is typically most reliable.
-const SERVERS = ["hd-1", "hd-2"];
+// Try sub then dub on hd-1, fall back to megacloud
+const TASKS = [
+  { server: "hd-1",     category: "sub", label: "Sub" },
+  { server: "hd-1",     category: "dub", label: "Dub" },
+  { server: "megacloud", category: "sub", label: "Sub (MegaCloud)" },
+  { server: "megacloud", category: "dub", label: "Dub (MegaCloud)" },
+];
 
 export async function streamHandler({ type, id }) {
   if (!id.startsWith(ID_PREFIX)) return { streams: [] };
@@ -22,14 +27,10 @@ export async function streamHandler({ type, id }) {
     try {
       episodeId = Buffer.from(encoded, "base64url").toString("utf-8");
     } catch {
-      // Fallback: treat the segment as a plain episode number and look it up
       const epNum = parseInt(encoded);
-      if (!isNaN(epNum)) {
-        episodeId = await resolveEpisodeId(animeId, epNum);
-      }
+      if (!isNaN(epNum)) episodeId = await resolveEpisodeId(animeId, epNum);
     }
   } else {
-    // Movie — get the first (and usually only) episode
     animeId = withoutPrefix;
     episodeId = await resolveEpisodeId(animeId, 1);
   }
@@ -39,32 +40,31 @@ export async function streamHandler({ type, id }) {
     return { streams: [] };
   }
 
-  // Fetch sub and dub from each server concurrently
-  const tasks = [];
-  for (const server of SERVERS) {
-    tasks.push({ server, category: "sub", label: "Sub" });
-    tasks.push({ server, category: "dub", label: "Dub" });
-  }
+  console.log("[Stream] Fetching sources for episodeId:", episodeId);
 
   const results = await Promise.allSettled(
-    tasks.map(({ server, category }) =>
+    TASKS.map(({ server, category }) =>
       getEpisodeSources(episodeId, server, category)
     )
   );
 
   const streams = [];
-  const seen = new Set(); // Deduplicate by URL
+  const seen = new Set();
 
-  for (let i = 0; i < tasks.length; i++) {
-    const { server, label } = tasks[i];
+  for (let i = 0; i < TASKS.length; i++) {
+    const { server, label } = TASKS[i];
     const result = results[i];
 
     if (result.status === "rejected") {
-      console.debug(`[Stream] ${server}/${tasks[i].category} failed:`, result.reason?.message);
+      console.warn(`[Stream] ${server}/${TASKS[i].category} failed:`, result.reason?.message);
       continue;
     }
 
-    const { sources = [], tracks = [], headers = {} } = result.value ?? {};
+    // The aniwatch package returns { sources, subtitles, headers }
+    // subtitles: Array<{ url, lang }> — already processed by the package
+    const { sources = [], subtitles = [], headers = {} } = result.value ?? {};
+
+    console.log(`[Stream] ${server}/${TASKS[i].category}: ${sources.length} source(s)`);
 
     for (const source of sources) {
       if (!source.url || seen.has(source.url)) continue;
@@ -73,24 +73,19 @@ export async function streamHandler({ type, id }) {
       const quality = source.quality ? ` | ${source.quality}` : "";
       const referer = headers?.Referer || "https://hianime.to";
 
-      // Build subtitle list from companion VTT tracks
-      const subtitles = tracks
-        .filter((t) => t.kind === "captions" || t.kind === "subtitles")
-        .map((t, idx) => ({
-          id: `sub-${idx}`,
-          url: t.file,
-          lang: t.label || "Unknown",
-        }));
+      const stremioSubtitles = subtitles.map((t, idx) => ({
+        id: t.id || `sub-${idx}`,
+        url: t.url,
+        lang: t.lang || "Unknown",
+      }));
 
       streams.push({
         name: "AniWatch",
         description: `${label} | ${server}${quality}`,
         url: source.url,
-        subtitles,
+        subtitles: stremioSubtitles,
         behaviorHints: {
-          // M3U8 streams from this CDN need a Referer header; desktop Stremio
-          // honours proxyHeaders while the web player will skip them.
-          notWebReady: true,
+          notWebReady: false,
           proxyHeaders: {
             request: { Referer: referer },
           },
@@ -100,6 +95,7 @@ export async function streamHandler({ type, id }) {
     }
   }
 
+  console.log(`[Stream] Returning ${streams.length} stream(s)`);
   return { streams };
 }
 
