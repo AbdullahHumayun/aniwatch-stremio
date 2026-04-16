@@ -103,4 +103,20 @@ app.listen(PORT, () => {
   console.log(`  Local:    http://localhost:${PORT}`);
   console.log(`  Manifest: http://localhost:${PORT}/manifest.json`);
   console.log(`  Install:  stremio://localhost:${PORT}/manifest.json`);
+
+  // Render.com free tier spins down after 15 min of inactivity.
+  // Self-ping every 14 minutes keeps the instance warm.
+  const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
+  if (RENDER_URL) {
+    const PING_INTERVAL = 14 * 60 * 1000;
+    setInterval(async () => {
+      try {
+        await fetch(`${RENDER_URL}/manifest.json`);
+        console.log("[keep-alive] ping sent");
+      } catch (err) {
+        console.warn("[keep-alive] ping failed:", err.message);
+      }
+    }, PING_INTERVAL);
+    console.log(`  Keep-alive active (pinging every 14 min)`);
+  }
 });
