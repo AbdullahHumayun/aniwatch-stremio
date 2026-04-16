@@ -1,15 +1,20 @@
-// Must run before any other imports so the proxy agent intercepts all HTTP/S
-// requests including those made internally by the aniwatch package.
-if (process.env.HTTPS_PROXY || process.env.HTTP_PROXY) {
+// flaresolverr.js patches axios.create at import-evaluation time.
+// It MUST be listed first so the patch is active before any module that
+// imports the aniwatch package (which calls axios.create at module load).
+import { initFlareSolverr } from "./src/flaresolverr.js";
+
+// Fallback: plain HTTP proxy (only when FlareSolverr is not configured)
+if (
+  !process.env.FLARESOLVERR_URL &&
+  (process.env.HTTPS_PROXY || process.env.HTTP_PROXY)
+) {
   const { bootstrap } = await import("global-agent");
   process.env.GLOBAL_AGENT_HTTPS_PROXY =
     process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
   process.env.GLOBAL_AGENT_HTTP_PROXY =
     process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
   bootstrap();
-  console.log(
-    `[proxy] routing via ${process.env.GLOBAL_AGENT_HTTPS_PROXY}`
-  );
+  console.log(`[proxy] routing via ${process.env.GLOBAL_AGENT_HTTPS_PROXY}`);
 }
 
 import express from "express";
@@ -32,7 +37,6 @@ app.get("/manifest.json", (_req, res) => {
 
 // ─── Catalog ─────────────────────────────────────────────────────────────────
 
-// /catalog/:type/:id/:extra.json  (with search, skip, etc.)
 app.get("/catalog/:type/:id/:extra.json", async (req, res) => {
   try {
     const { type, id } = req.params;
@@ -44,7 +48,6 @@ app.get("/catalog/:type/:id/:extra.json", async (req, res) => {
   }
 });
 
-// /catalog/:type/:id.json  (no extras)
 app.get("/catalog/:type/:id.json", async (req, res) => {
   try {
     const { type, id } = req.params;
@@ -83,19 +86,14 @@ app.get("/stream/:type/:id.json", async (req, res) => {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/**
- * Parse Stremio's extra param string, e.g. "search=naruto&skip=20"
- * Keys and values are URL-decoded individually.
- */
 function parseExtra(raw) {
   const params = {};
   if (!raw) return params;
   for (const part of raw.split("&")) {
     const eqIdx = part.indexOf("=");
     if (eqIdx > 0) {
-      const key = safeDecodeURIComponent(part.slice(0, eqIdx));
-      const value = safeDecodeURIComponent(part.slice(eqIdx + 1));
-      params[key] = value;
+      params[safeDecodeURIComponent(part.slice(0, eqIdx))] =
+        safeDecodeURIComponent(part.slice(eqIdx + 1));
     }
   }
   return params;
@@ -112,17 +110,18 @@ function safeDecodeURIComponent(str) {
 // ─── Start ───────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`AniWatch Stremio Addon`);
   console.log(`  Local:    http://localhost:${PORT}`);
   console.log(`  Manifest: http://localhost:${PORT}/manifest.json`);
   console.log(`  Install:  stremio://localhost:${PORT}/manifest.json`);
 
-  // Render.com free tier spins down after 15 min of inactivity.
-  // Self-ping every 14 minutes keeps the instance warm.
+  // Start FlareSolverr cookie refresh loop (no-op if FLARESOLVERR_URL is unset)
+  await initFlareSolverr();
+
+  // Keep-alive ping for Render free tier (prevents idle spin-down)
   const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
   if (RENDER_URL) {
-    const PING_INTERVAL = 14 * 60 * 1000;
     setInterval(async () => {
       try {
         await fetch(`${RENDER_URL}/manifest.json`);
@@ -130,7 +129,7 @@ app.listen(PORT, () => {
       } catch (err) {
         console.warn("[keep-alive] ping failed:", err.message);
       }
-    }, PING_INTERVAL);
+    }, 14 * 60 * 1000);
     console.log(`  Keep-alive active (pinging every 14 min)`);
   }
 });

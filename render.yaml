@@ -1,10 +1,12 @@
 services:
   - type: web
     name: aniwatch-stremio
-    runtime: node
-    buildCommand: npm install
-    startCommand: node index.js
+    env: docker
+    dockerfilePath: Dockerfile
     autoDeploy: true
+    # Recommended: "starter" plan (512 MB RAM) or higher.
+    # Chrome inside FlareSolverr typically needs 400-600 MB.
+    # The free tier (256 MB) will likely OOM.
     envVars:
       - key: NODE_ENV
         value: production
