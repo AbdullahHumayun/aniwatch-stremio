@@ -6,65 +6,70 @@ Stream anime from **AniWatch.tv (HiAnime)** directly inside Stremio — HD quali
 
 ## Install (one click)
 
-Once deployed (see below), click the badge to add the addon to Stremio:
-
-> Replace `YOUR-APP-NAME.onrender.com` with your actual deployed URL after deploying.
-
-[![Install in Stremio](https://img.shields.io/badge/Install%20in-Stremio-8A5BE2?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0id2hpdGUiIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyek0xMCAxNi41di05bDYgNC41LTYgNC41eiIvPjwvc3ZnPg==)](stremio://YOUR-APP-NAME.onrender.com/manifest.json)
-
-Or paste this URL into **Stremio → Add-ons → Community add-ons → paste URL**:
+Once deployed, paste your URL into **Stremio → Add-ons → Community add-ons → paste URL**:
 
 ```
 https://YOUR-APP-NAME.onrender.com/manifest.json
+```
+
+Or use the `stremio://` deep-link to install directly:
+
+```
+stremio://YOUR-APP-NAME.onrender.com/manifest.json
 ```
 
 ---
 
 ## Deploy for free
 
-### Option 1 — Render.com (recommended)
+The addon uses [`got-scraping`](https://github.com/apify/got-scraping) to mimic browser
+TLS fingerprints, keeping RAM usage at **~80–120 MB** — well within every free tier below.
+
+> **Note**: if HiAnime is blocking the server's IP range (not just TLS fingerprints), streams
+> may still fail from cloud hosts. In that case, **Option 5 (local + tunnel)** always works
+> because your home IP is residential.
+
+### Option 1 — Render.com (free tier, recommended)
 
 1. Fork this repo to your GitHub account
-2. Go to [render.com](https://render.com) and sign up (free)
-3. Click **New → Web Service** → connect your fork
-4. Render auto-detects `render.yaml` — click **Deploy**
-5. Your addon URL will be `https://YOUR-APP-NAME.onrender.com`
+2. Go to [render.com](https://render.com) → sign up (free)
+3. **New → Web Service** → connect your fork
+4. Render auto-detects `render.yaml` → click **Deploy**
 
 [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/abdullahhumayun/aniwatch-stremio)
 
-### Option 2 — Railway
+### Option 2 — Koyeb (free tier, 512 MB)
 
 1. Fork this repo
-2. Go to [railway.app](https://railway.app) → **New Project → Deploy from GitHub repo**
-3. Select your fork — Railway auto-detects Node.js
-4. Set `PORT` to `7000` in the environment variables (optional, Railway sets its own)
-5. Your addon URL will be in the Railway dashboard
+2. Go to [koyeb.com](https://www.koyeb.com) → **Create App → GitHub**
+3. Select your fork — Koyeb auto-detects Node.js
+4. Deploy → get a `*.koyeb.app` URL
 
-[![Deploy on Railway](https://railway.app/button.svg)](https://railway.app/template/aniwatch-stremio)
-
-### Option 3 — Docker (any VPS / cloud)
+### Option 3 — Fly.io (free tier, 256 MB)
 
 ```bash
-docker build -t aniwatch-stremio .
-docker run -d -p 7000:7000 aniwatch-stremio
+# Install flyctl, then:
+fly launch   # detects Node.js automatically
+fly deploy
 ```
 
----
+### Option 4 — Oracle Cloud Always Free (1 GB RAM)
 
-## Cloud deployment note — proxy required
+1. Sign up at [cloud.oracle.com](https://cloud.oracle.com) (free forever, no credit card required for Always Free)
+2. Create an ARM VM (Ampere) — 1 GB RAM free
+3. Install Node.js 20, clone the repo, `npm install && npm start`
+4. Open port 7000 in the security list
 
-HiAnime (AniWatch.tv) blocks requests from datacenter IP ranges (Render, Railway, etc.).
-The addon works fine when run **locally on a home/residential IP**. For cloud hosting,
-you need to route requests through a residential proxy:
+### Option 5 — Local + Cloudflare Tunnel (always free, best reliability)
 
-1. Sign up for [ScraperAPI](https://www.scraperapi.com) (free tier: 1 000 calls/month)
-2. In your Render/Railway service, set this environment variable:
-   ```
-   HTTPS_PROXY=http://scraperapi:YOUR_API_KEY@proxy.scraperapi.com:8001
-   ```
-3. Redeploy — the addon will route all scraping through the proxy automatically.
+Your home IP is residential — no blocks, no proxy needed.
 
-Any HTTPS proxy in `http://user:pass@host:port` format works, not just ScraperAPI.
+```bash
+npm start
+# In a second terminal:
+npx cloudflared tunnel --url http://localhost:7000
+# Prints a permanent https://....trycloudflare.com URL — paste into Stremio
+```
 
 ---
 
@@ -73,15 +78,17 @@ Any HTTPS proxy in `http://user:pass@host:port` format works, not just ScraperAP
 | Feature | Detail |
 |---|---|
 | Catalogs | Trending, Latest Episodes, Top Rated, Search |
-| Streams | Sub + Dub HLS from VidStreaming (hd-1) and VidCloud (hd-2) |
+| Streams | Sub + Dub HLS from VidStreaming (hd-1) and MegaCloud |
 | Subtitles | VTT tracks bundled with each stream |
+| CF Bypass | `got-scraping` injects browser-like TLS + cookies (~100 MB RAM) |
 | Caching | In-memory TTL cache (30 min catalog, 5 min streams) |
+| Keep-alive | Auto-pings Render every 14 min to prevent free-tier spin-down |
 
 ## Local development
 
 ```bash
 npm install
 npm start
-# Open: http://localhost:7000/manifest.json
+# Open:    http://localhost:7000/manifest.json
 # Install: stremio://localhost:7000/manifest.json
 ```

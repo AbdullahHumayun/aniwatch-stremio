@@ -1,21 +1,7 @@
-// flaresolverr.js patches axios.create at import-evaluation time.
+// cfbypass (src/flaresolverr.js) patches axios.create at import-evaluation time.
 // It MUST be listed first so the patch is active before any module that
 // imports the aniwatch package (which calls axios.create at module load).
-import { initFlareSolverr } from "./src/flaresolverr.js";
-
-// Fallback: plain HTTP proxy (only when FlareSolverr is not configured)
-if (
-  !process.env.FLARESOLVERR_URL &&
-  (process.env.HTTPS_PROXY || process.env.HTTP_PROXY)
-) {
-  const { bootstrap } = await import("global-agent");
-  process.env.GLOBAL_AGENT_HTTPS_PROXY =
-    process.env.HTTPS_PROXY || process.env.HTTP_PROXY;
-  process.env.GLOBAL_AGENT_HTTP_PROXY =
-    process.env.HTTP_PROXY || process.env.HTTPS_PROXY;
-  bootstrap();
-  console.log(`[proxy] routing via ${process.env.GLOBAL_AGENT_HTTPS_PROXY}`);
-}
+import { initCFBypass } from "./src/flaresolverr.js";
 
 import express from "express";
 import cors from "cors";
@@ -116,8 +102,8 @@ app.listen(PORT, async () => {
   console.log(`  Manifest: http://localhost:${PORT}/manifest.json`);
   console.log(`  Install:  stremio://localhost:${PORT}/manifest.json`);
 
-  // Start FlareSolverr cookie refresh loop (no-op if FLARESOLVERR_URL is unset)
-  await initFlareSolverr();
+  // Start CF bypass cookie refresh loop
+  await initCFBypass();
 
   // Keep-alive ping for Render free tier (prevents idle spin-down)
   const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
