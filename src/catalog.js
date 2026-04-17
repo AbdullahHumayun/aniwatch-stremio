@@ -1,21 +1,15 @@
-import { getHomePage, search } from "./aniwatch.js";
+import { getPopular, getTopRated, getRecent, search } from "./allanime.js";
 
 const ID_PREFIX = "aniwatch:";
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 26;
 
-function animeToMeta(anime) {
-  const type = anime.type === "Movie" ? "movie" : "series";
-  const episodeInfo = [];
-  if (anime.episodes?.sub) episodeInfo.push(`Sub: ${anime.episodes.sub}`);
-  if (anime.episodes?.dub) episodeInfo.push(`Dub: ${anime.episodes.dub}`);
-
+function toStremioMeta(anime) {
   return {
     id: `${ID_PREFIX}${anime.id}`,
-    type,
+    type: anime.type,
     name: anime.name,
     poster: anime.poster,
     posterShape: "poster",
-    description: episodeInfo.length ? episodeInfo.join(" | ") : undefined,
   };
 }
 
@@ -25,28 +19,23 @@ export async function catalogHandler({ id, extra }) {
 
   if (id === "aniwatch-search") {
     if (!extra.search) return { metas: [] };
-    const results = await search(extra.search, page);
-    return { metas: (results.animes || []).map(animeToMeta) };
+    const animes = await search(extra.search, page);
+    return { metas: animes.map(toStremioMeta) };
   }
 
-  const homepage = await getHomePage();
-
   if (id === "aniwatch-trending") {
-    const animes = homepage.trendingAnimes || [];
-    const slice = animes.slice(skip, skip + PAGE_SIZE);
-    return { metas: slice.map(animeToMeta) };
+    const animes = await getPopular(page);
+    return { metas: animes.map(toStremioMeta) };
   }
 
   if (id === "aniwatch-recent") {
-    const animes = homepage.latestEpisodeAnimes || [];
-    const slice = animes.slice(skip, skip + PAGE_SIZE);
-    return { metas: slice.map(animeToMeta) };
+    const animes = await getRecent(page);
+    return { metas: animes.map(toStremioMeta) };
   }
 
   if (id === "aniwatch-top-rated") {
-    const animes = homepage.top10Animes?.today || homepage.mostViewedAnimes || [];
-    const slice = animes.slice(skip, skip + PAGE_SIZE);
-    return { metas: slice.map(animeToMeta) };
+    const animes = await getTopRated(page);
+    return { metas: animes.map(toStremioMeta) };
   }
 
   return { metas: [] };

@@ -3,9 +3,9 @@ export const manifest = {
   version: "1.0.0",
   name: "AniWatch",
   description:
-    "Watch anime from AniWatch.tv (HiAnime) — HD streaming with sub & dub support, subtitles, and search.",
-  logo: "https://hianime.to/images/logo.png",
-  background: "https://hianime.to/images/bg.jpg",
+    "Stream anime from AllAnime — HD sub & dub, search, and cloud-friendly (no datacenter blocks).",
+  logo: "https://allmanga.to/logo.png",
+  background: "https://allmanga.to/logo.png",
   types: ["series", "movie"],
   catalogs: [
     {

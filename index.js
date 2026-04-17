@@ -1,8 +1,3 @@
-// cfbypass (src/flaresolverr.js) patches axios.create at import-evaluation time.
-// It MUST be listed first so the patch is active before any module that
-// imports the aniwatch package (which calls axios.create at module load).
-import { initCFBypass } from "./src/flaresolverr.js";
-
 import express from "express";
 import cors from "cors";
 import { manifest } from "./src/manifest.js";
@@ -96,14 +91,11 @@ function safeDecodeURIComponent(str) {
 // ─── Start ───────────────────────────────────────────────────────────────────
 
 const PORT = process.env.PORT || 7000;
-app.listen(PORT, async () => {
-  console.log(`AniWatch Stremio Addon`);
+app.listen(PORT, () => {
+  console.log(`AniWatch Stremio Addon (AllAnime backend)`);
   console.log(`  Local:    http://localhost:${PORT}`);
   console.log(`  Manifest: http://localhost:${PORT}/manifest.json`);
   console.log(`  Install:  stremio://localhost:${PORT}/manifest.json`);
-
-  // Start CF bypass cookie refresh loop
-  await initCFBypass();
 
   // Keep-alive ping for Render free tier (prevents idle spin-down)
   const RENDER_URL = process.env.RENDER_EXTERNAL_URL;

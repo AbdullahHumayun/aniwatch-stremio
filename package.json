@@ -2,14 +2,13 @@
   "name": "aniwatch-stremio",
   "version": "1.0.0",
   "type": "module",
-  "description": "Stremio addon for AniWatch.tv (HiAnime) — HD anime streaming with sub & dub support",
+  "description": "Stremio addon for anime — AllAnime backend, HD sub & dub, cloud-friendly",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
     "dev": "node --watch index.js"
   },
   "dependencies": {
-    "aniwatch": "^2.27.9",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "got-scraping": "^4.2.1"
